@@ -434,11 +434,47 @@ public class BukkitAdapter implements BukkitInterface {
 
     @Override
     public String getPaintingArtKey(Painting painting) {
-        try {
-            return painting.getArt().name();
+        Object art = painting.getArt();
+        String key = getPaintingArtRegistryKey(art);
+        if (!key.isEmpty()) {
+            return key;
         }
-        catch (IncompatibleClassChangeError e) {
-            return painting.getArt().toString();
+
+        return getPaintingArtLegacyName(art);
+    }
+
+    private String getPaintingArtRegistryKey(Object art) {
+        if (art == null) {
+            return "";
+        }
+
+        try {
+            Class<?> keyedClass = Class.forName("org.bukkit.Keyed");
+            if (!keyedClass.isInstance(art)) {
+                return "";
+            }
+
+            Class<?> registryClass = Class.forName("org.bukkit.Registry");
+            Object artRegistry = registryClass.getField("ART").get(null);
+            Object key = registryClass.getMethod("getKey", keyedClass).invoke(artRegistry, art);
+            return key == null ? "" : normalizePaintingArtKey(key.toString());
+        }
+        catch (ReflectiveOperationException | LinkageError e) {
+            return "";
+        }
+    }
+
+    private String getPaintingArtLegacyName(Object art) {
+        if (art == null) {
+            return "";
+        }
+
+        try {
+            Object name = art.getClass().getMethod("name").invoke(art);
+            return name == null ? "" : name.toString();
+        }
+        catch (ReflectiveOperationException | LinkageError e) {
+            return art.toString();
         }
     }
 
@@ -448,7 +484,69 @@ public class BukkitAdapter implements BukkitInterface {
             return null;
         }
 
-        return Art.getByName(name.toUpperCase(Locale.ROOT));
+        Art art = getPaintingArtFromRegistry(name);
+        if (art != null) {
+            return art;
+        }
+
+        return getPaintingArtByName(name);
+    }
+
+    private Art getPaintingArtFromRegistry(String name) {
+        try {
+            Class<?> namespacedKeyClass = Class.forName("org.bukkit.NamespacedKey");
+            Object namespacedKey = getNamespacedKey(namespacedKeyClass, name);
+            if (namespacedKey == null) {
+                return null;
+            }
+
+            Class<?> registryClass = Class.forName("org.bukkit.Registry");
+            Object artRegistry = registryClass.getField("ART").get(null);
+            Object art = registryClass.getMethod("get", namespacedKeyClass).invoke(artRegistry, namespacedKey);
+            return art instanceof Art ? (Art) art : null;
+        }
+        catch (ReflectiveOperationException | LinkageError e) {
+            return null;
+        }
+    }
+
+    private Object getNamespacedKey(Class<?> namespacedKeyClass, String name) throws ReflectiveOperationException {
+        String key = normalizePaintingArtLookupKey(name);
+        try {
+            return namespacedKeyClass.getMethod("fromString", String.class).invoke(null, key);
+        }
+        catch (NoSuchMethodException e) {
+            if (key.startsWith("minecraft:")) {
+                return namespacedKeyClass.getMethod("minecraft", String.class).invoke(null, key.substring("minecraft:".length()));
+            }
+        }
+
+        return null;
+    }
+
+    private Art getPaintingArtByName(String name) {
+        try {
+            String legacyName = normalizePaintingArtKey(name).toUpperCase(Locale.ROOT);
+            Object art = Art.class.getMethod("getByName", String.class).invoke(null, legacyName);
+            return art instanceof Art ? (Art) art : null;
+        }
+        catch (ReflectiveOperationException | LinkageError e) {
+            return null;
+        }
+    }
+
+    private String normalizePaintingArtKey(String name) {
+        String normalized = name.toLowerCase(Locale.ROOT).trim();
+        if (normalized.startsWith("minecraft:")) {
+            return normalized.substring("minecraft:".length());
+        }
+
+        return normalized;
+    }
+
+    private String normalizePaintingArtLookupKey(String name) {
+        String normalized = normalizePaintingArtKey(name);
+        return normalized.contains(":") ? normalized : "minecraft:" + normalized;
     }
 
     @Override

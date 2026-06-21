@@ -107,8 +107,8 @@ public class HangingUtil {
                         return;
                     }
 
-                    int height = painting.getBlockHeight();
-                    int width = painting.getBlockWidth();
+                    int height = getArtSize(painting, "getBlockHeight");
+                    int width = getArtSize(painting, "getBlockWidth");
                     int paintingX = x;
                     int paintingY = y;
                     int paintingZ = z;
@@ -170,6 +170,16 @@ public class HangingUtil {
         }
         catch (Exception e) {
             ErrorReporter.report(e);
+        }
+    }
+
+    private static int getArtSize(Art painting, String methodName) {
+        try {
+            Object value = Art.class.getMethod(methodName).invoke(painting);
+            return value instanceof Number ? ((Number) value).intValue() : 1;
+        }
+        catch (ReflectiveOperationException | LinkageError e) {
+            return 1;
         }
     }
 

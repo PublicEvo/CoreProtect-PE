@@ -158,7 +158,7 @@ public class EntityUtil {
                         }
                         else if (count == 1) {
                             String set = (String) value;
-                            if (set.length() > 0) {
+                            if (set != null && !set.isEmpty()) {
                                 Player owner = Bukkit.getServer().getPlayer(set);
                                 if (owner == null) {
                                     OfflinePlayer offlinePlayer = Bukkit.getServer().getOfflinePlayer(set);
