@@ -44,3 +44,14 @@ jobs:
           path: target/CoreProtect-*.jar
           if-no-files-found: error
           retention-days: 90
+
+      - name: Send Discord notification
+        if: success()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          if [ -n "$DISCORD_WEBHOOK" ]; then
+            curl -H "Content-Type: application/json" \
+              -d "{\"content\": \"🔔 **CoreProtect обновлён!**\n\n✅ Версия: **v${{ steps.version.outputs.version }}**\n📦 Скачать: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\n\n⚠️ Не забудьте обновить плагин на сервере!\"}" \
+              "$DISCORD_WEBHOOK"
+          fi
