@@ -463,7 +463,11 @@ public class Process {
                                     if (object instanceof EntitySpawnData) {
                                         EntitySpawnData update = (EntitySpawnData) object;
                                         invalidateEntityInteractionIdentityConfirmation(update, pendingEntityIdentityConfirmations, invalidatedEntityIdentityConfirmations);
-                                        entitySpawnUpdates.apply(update);
+                                        EntitySpawnIdentity createdIdentity = entitySpawnUpdates.apply(update);
+                                        if (createdIdentity != null) {
+                                            entitySpawnIdentities.put(createdIdentity.getUuid(), createdIdentity);
+                                            promotedEntityIdentities.add(createdIdentity.getUuid());
+                                        }
                                     }
                                     break;
                             }
@@ -712,7 +716,13 @@ public class Process {
                     EntitySpawnTracking.verifyPendingDatabaseIdentity(uuid, pending.interaction.getCurrentLocation());
                 }
                 catch (Exception e) {
+                    verifiedIdentities.remove(uuid);
                     ErrorReporter.report(e);
+                }
+            }
+            for (PendingEntityInteraction pending : interactions) {
+                if (!pending.retryRequired && verifiedIdentities.contains(pending.interaction.getEntityUuid())) {
+                    cancelEntityInteractionPromotion(pending.interaction);
                 }
             }
         }
