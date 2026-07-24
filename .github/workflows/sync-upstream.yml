@@ -36,20 +36,30 @@ jobs:
         run: git fetch upstream
 
       - name: Merge upstream changes
+        id: merge
         run: |
           git checkout master
+          BEFORE=$(git rev-parse HEAD)
           if git merge upstream/master --no-edit; then
             echo "Merge successful"
           else
             echo "::error::Merge conflict detected. Please resolve manually."
             exit 1
           fi
+          if [ "$BEFORE" != "$(git rev-parse HEAD)" ]; then
+            echo "Upstream brought new changes"
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "Already up to date, nothing to build"
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Push changes
+        if: steps.merge.outputs.changed == 'true'
         run: git push origin master
 
       - name: Trigger build workflow
-        if: success()
+        if: steps.merge.outputs.changed == 'true'
         uses: actions/github-script@v9.0.0
         with:
           script: |
